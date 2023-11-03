@@ -20,14 +20,33 @@ const { Core } = require('@adobe/aio-sdk')
 // main function that will be executed by Adobe I/O Runtime
 const main = async params => {
   const state = await stateLib.init();
-  const logger = Core.Logger('main', { level: params.LOG_LEVEL || 'info' })
-  logger.info(params)
+  const logger = Core.Logger('main', { level: params.LOG_LEVEL || 'info' });
+  const skus = params.skus;
+  let products = [];
 
-  const storedData = await state.get('test product 1');
+  let body = { data: {} };
+  if (!skus) {
+    return {
+      statusCode: 404,
+      body: { error: 'expecting a skus parameter' }
+    }
+  }
+  logger.info(params);
+
+  const skuArray = skus.split(',');
+  for (const skuElement of skuArray) {
+    const storedData = await state.get(skuElement);
+    if (storedData) {
+      products.push(storedData);
+    }
+  }
+  if (!body.error) {
+    body = { data: products };
+  }
 
   return {
     statusCode: 200,
-    body: storedData
+    body: body
   }
 };
 

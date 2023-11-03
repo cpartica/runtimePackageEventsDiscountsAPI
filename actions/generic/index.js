@@ -17,71 +17,68 @@ const fetch = require('node-fetch')
 const stateLib = require('@adobe/aio-lib-state')
 const { Core } = require('@adobe/aio-sdk')
 
-
 // main function that will be executed by Adobe I/O Runtime
 const main = async params => {
   const state = await stateLib.init();
   const logger = Core.Logger('main', { level: params.LOG_LEVEL || 'info' })
+  const COMMERCE_URL = 'https://mcstaging.api-mesh.dummycachetest.com/graphql';
   logger.info(params)
 
   const sku = params.data.value.sku;
 
-  const product = {
+  const eventProduct = {
     "name": params.data.value.name,
     "price": params.data.value.price
   }
 
-  async function fetchGraphQLProducts() {
-    const graphqlQuery = {
-      query: `{
-      products(filter: {sku: {eq: "${sku}"}}) {
-        items {
-          name
-          sku
-          special_price
-          price_range {
-            minimum_price {
-              discount { percent_off }
-              regular_price { value }
-              final_price { value }
-            }
+  const graphqlQuery = {
+    query: `{
+    products(filter: {sku: {eq: "${sku}"}}) {
+      items {
+        name
+        sku
+        special_price
+        price_range {
+          minimum_price {
+            discount { percent_off }
+            regular_price { value }
+            final_price { value }
           }
         }
       }
-    }`,
-      variables: {}  // if your query has variables, they go here
-    };
-
-    const response = await fetch('https://mcstaging.api-mesh.dummycachetest.com/graphql', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // If you need an authorization token or any other headers, set them here
-        // 'Authorization': 'Bearer YOUR_TOKEN_HERE'
-      },
-      body: JSON.stringify(graphqlQuery)
-    });
-
-    if (!response.ok) {
-      throw new Error(`Network response was not ok: ${response.statusText}`);
     }
+  }`,
+    variables: {}
+  };
 
-    const jsonResponse = await response.json();
+  const gqlResponse = await fetch(COMMERCE_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(graphqlQuery)
+  });
 
-    // Handle the case where GraphQL returns errors
-    if (jsonResponse.errors) {
-      console.error('GraphQL Errors:', jsonResponse.errors);
-      throw new Error('GraphQL query failed!');
-    }
-
-    return jsonResponse.data.products;
+  if (!gqlResponse.ok) {
+    logger.info(`GraphQL Network response was not ok: ${gqlResponse.statusText}`);
+    throw new Error(`GraphQL Network response was not ok: ${gqlResponse.statusText}`);
   }
 
-  fetchGraphQLProducts()
-      .then(products => console.log(products))
-      .catch(error => console.error(error));
+  const jsonGqlResponse = await gqlResponse.json();
 
-  state.put(sku, product);
+  // Handle the case where GraphQL returns errors
+  if (jsonGqlResponse.errors) {
+    logger.info('GraphQL Errors:', jsonGqlResponse.errors);
+    throw new Error('GraphQL query failed!');
+  }
+
+  let productExtraData = {};
+  try {
+    productExtraData = jsonGqlResponse.data.products.items[0];
+  } catch (e) {
+    productExtraData = {};
+  }
+  state.put(sku, { event: eventProduct, product: productExtraData });
 
   const storedData = await state.get(sku);
 
