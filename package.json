@@ -5,7 +5,7 @@
   "dependencies": {
     "@adobe/generator-app-events-generic": "^1.0.0",
     "@adobe/aio-sdk": "^4.1.0",
-    "adobe/aio-lib-state": "^2.1.2"
+    "@adobe/aio-lib-state": "^2.1.2"
   },
   "devDependencies": {
     "jest": "^29",
